@@ -81,5 +81,5 @@ func qos(rate int64, res time.Duration) time.Duration {
 }
 
 func total(rate int64, res, d time.Duration) int64 {
-	return int64(d) / int64(res) * rate
+	return int64(d/res) * rate
 }
