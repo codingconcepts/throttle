@@ -1,10 +1,12 @@
 package throttle
 
 import (
+	"sync"
 	"time"
 )
 
-type runner struct {
+// Runner holds the methods of the interface.
+type Runner struct {
 	rate int64
 	res  time.Duration
 	c    <-chan time.Time
@@ -14,8 +16,8 @@ type runner struct {
 // perform all operations at the given rate in requests/s.
 //
 // Rate is the number of requests you wish to run
-func New(rate int64, res time.Duration) *runner {
-	r := runner{
+func New(rate int64, res time.Duration) *Runner {
+	r := Runner{
 		rate: rate,
 		res:  res,
 	}
@@ -31,46 +33,51 @@ func New(rate int64, res time.Duration) *runner {
 // your throttler is configured to run 10 operations per second and
 // you pass 50 for total, this will execute the function 50 times
 // and take 5 seconds.
-func (r *runner) Do(total int, f func() error) error {
+func (r *Runner) Do(total int, f func()) {
+	var wg sync.WaitGroup
+	wg.Add(total)
 	for i := 0; i < total; i++ {
 		if r.rate > 0 {
 			<-r.c
 		}
 
-		if err := f(); err != nil {
-			return err
-		}
+		go func() {
+			defer wg.Done()
+			f()
+		}()
 	}
-	return nil
+	wg.Wait()
 }
 
 // DoFor executes a function for a given amount of time.  For example,
 // if your throttler is configured to run 10 operations per second and
 // you pass 3 seconds for d, this will execute the function 30 times.
-func (r *runner) DoFor(d time.Duration, f func() error) error {
+func (r *Runner) DoFor(d time.Duration, f func()) {
 	if d == 0 {
-		return nil
+		return
 	}
 
 	current := int64(0)
 	total := total(r.rate, r.res, d)
-	timer := time.NewTimer(d)
+	var wg sync.WaitGroup
 	for {
 		select {
-		case <-timer.C:
-			return nil
 		default:
 			if current == total {
-				return nil
+				wg.Wait()
+				return
 			}
 			current++
 
 			if r.rate > 0 {
 				<-r.c
 			}
-			if err := f(); err != nil {
-				return err
-			}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				f()
+			}()
 		}
 	}
 }

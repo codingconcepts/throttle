@@ -1,7 +1,6 @@
 package throttle
 
 import (
-	"errors"
 	"log"
 	"reflect"
 	"sync/atomic"
@@ -11,12 +10,11 @@ import (
 
 func TestDo(t *testing.T) {
 	cases := []struct {
-		name   string
-		rps    int64
-		res    time.Duration
-		total  int
-		exp    int64
-		expErr bool
+		name  string
+		rps   int64
+		res   time.Duration
+		total int
+		exp   int64
 	}{
 		{name: "no throttle without requests", rps: 0, res: time.Millisecond, total: 0, exp: 0},
 		{name: "1/ms throttle without requests", rps: 1, res: time.Millisecond, total: 0, exp: 0},
@@ -24,7 +22,6 @@ func TestDo(t *testing.T) {
 		{name: "1/ms throttle with 1 request", rps: 1, res: time.Millisecond, total: 1, exp: 1},
 		{name: "10/ms throttle with 1 request", rps: 10, res: time.Millisecond, total: 1, exp: 1},
 		{name: "10/ms throttle with 10 requests", rps: 10, res: time.Millisecond, total: 10, exp: 10},
-		{name: "error", rps: 1, res: time.Millisecond, total: 1, exp: 0, expErr: true},
 	}
 
 	for _, c := range cases {
@@ -32,20 +29,9 @@ func TestDo(t *testing.T) {
 			r := New(c.rps, c.res)
 
 			var sum int64
-			err := r.Do(c.total, func() error {
-				if c.expErr {
-					return errors.New("bang")
-				}
+			r.Do(c.total, func() {
 				atomic.AddInt64(&sum, 1)
-				return nil
 			})
-
-			if err != nil && !c.expErr {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if err == nil && c.expErr {
-				t.Fatal("expected error but didn't get one")
-			}
 
 			equals(t, c.exp, sum)
 		})
@@ -65,7 +51,6 @@ func TestDoFor(t *testing.T) {
 		{name: "1 throttle for 1ms", rps: 1, res: time.Millisecond, d: time.Millisecond, exp: 1},
 		{name: "1 throttle for 2ms", rps: 10, res: time.Millisecond, d: time.Millisecond * 2, exp: 20},
 		{name: "10 throttle with 1ms", rps: 10, res: time.Millisecond, d: time.Millisecond, exp: 10},
-		{name: "error", rps: 1, res: time.Millisecond, d: time.Millisecond, expErr: true},
 	}
 
 	for _, c := range cases {
@@ -73,20 +58,9 @@ func TestDoFor(t *testing.T) {
 			r := New(c.rps, c.res)
 
 			var sum int64
-			err := r.DoFor(c.d, func() error {
-				if c.expErr {
-					return errors.New("bang")
-				}
+			r.DoFor(c.d, func() {
 				atomic.AddInt64(&sum, 1)
-				return nil
 			})
-
-			if err != nil && !c.expErr {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if err == nil && c.expErr {
-				t.Fatal("expected error but didn't get one")
-			}
 
 			equals(t, c.exp, sum)
 		})
@@ -148,9 +122,8 @@ func Example() {
 	r := New(10, time.Second)
 
 	var sum int64
-	r.Do(10, func() error {
+	r.Do(10, func() {
 		atomic.AddInt64(&sum, 1)
-		return nil
 	})
 	log.Println("sum", sum)
 }

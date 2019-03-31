@@ -25,9 +25,8 @@ func main() {
 	r := throttle.New(10, time.Second)
 
 	var sum int64
-	f := func() error {
+	f := func() {
 		atomic.AddInt64(&sum, 1)
-		return nil
 	}
 
 	// Run 20 times (takes 2s because we're running 10 ops/s).
