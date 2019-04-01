@@ -40,12 +40,11 @@ func TestDo(t *testing.T) {
 
 func TestDoFor(t *testing.T) {
 	cases := []struct {
-		name   string
-		rps    int64
-		res    time.Duration
-		d      time.Duration
-		exp    int64
-		expErr bool
+		name string
+		rps  int64
+		res  time.Duration
+		d    time.Duration
+		exp  int64
 	}{
 		{name: "no throttle without requests", rps: 0, res: time.Millisecond, d: 0, exp: 0},
 		{name: "1 throttle for 1ms", rps: 1, res: time.Millisecond, d: time.Millisecond, exp: 1},
@@ -90,30 +89,6 @@ func TestQOS(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			act := qos(c.rate, c.res)
 			equals(t, c.exp, act)
-		})
-	}
-}
-
-func TestTotal(t *testing.T) {
-	cases := []struct {
-		name string
-		rate int64
-		res  time.Duration
-		d    time.Duration
-		exp  int64
-	}{
-		{name: "1/s for 1s", rate: 1, res: time.Second, d: time.Second, exp: 1},
-		{name: "2/s for 1s", rate: 2, res: time.Second, d: time.Second, exp: 2},
-		{name: "1/s for 2s", rate: 1, res: time.Second, d: time.Second * 2, exp: 2},
-		{name: "1/ms for 1s", rate: 1, res: time.Millisecond, d: time.Second, exp: 1000},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			act := total(c.rate, c.res, c.d)
-			if act != c.exp {
-				t.Fatalf("exp: %d\ngot: %d\n", c.exp, act)
-			}
 		})
 	}
 }

@@ -57,18 +57,14 @@ func (r *Runner) DoFor(d time.Duration, f func()) {
 		return
 	}
 
-	current := int64(0)
-	total := total(r.rate, r.res, d)
+	end := time.After(d)
 	var wg sync.WaitGroup
 	for {
 		select {
+		case <-end:
+			wg.Wait()
+			return
 		default:
-			if current == total {
-				wg.Wait()
-				return
-			}
-			current++
-
 			if r.rate > 0 {
 				<-r.c
 			}
@@ -85,8 +81,4 @@ func (r *Runner) DoFor(d time.Duration, f func()) {
 func qos(rate int64, res time.Duration) time.Duration {
 	micros := res.Nanoseconds()
 	return time.Duration(micros/rate) * time.Nanosecond
-}
-
-func total(rate int64, res, d time.Duration) int64 {
-	return int64(d/res) * rate
 }
