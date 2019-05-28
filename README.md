@@ -30,12 +30,12 @@ func main() {
 	}
 
 	// Run 20 times (takes 2s because we're running 10 ops/s).
-	r.Do(20, f)
+	r.Do(context.Background(), 20, f)
 	fmt.Printf("sum: %d\n", sum)
 	// Outputs: 20
 
 	// Run for 3 seconds.
-	r.DoFor(time.Second*3, f)
+	r.DoFor(context.Background(), time.Second*3, f)
 	fmt.Printf("sum: %d\n", sum)
 	// Outputs: 50
 }

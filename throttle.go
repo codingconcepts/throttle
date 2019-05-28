@@ -1,6 +1,7 @@
 package throttle
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -33,7 +34,7 @@ func New(rate int64, res time.Duration) *Runner {
 // your throttler is configured to run 10 operations per second and
 // you pass 50 for total, this will execute the function 50 times
 // and take 5 seconds.
-func (r *Runner) Do(total int, f func()) {
+func (r *Runner) Do(ctx context.Context, total int, f func()) {
 	var wg sync.WaitGroup
 	wg.Add(total)
 	for i := 0; i < total; i++ {
@@ -46,13 +47,28 @@ func (r *Runner) Do(total int, f func()) {
 			f()
 		}()
 	}
-	wg.Wait()
+
+	// Allow context cancellations to be provided.
+	finished := make(chan struct{})
+	go func() {
+		wg.Wait()
+		finished <- struct{}{}
+	}()
+
+	for {
+		select {
+		case <-finished:
+			return
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // DoFor executes a function for a given amount of time.  For example,
 // if your throttler is configured to run 10 operations per second and
 // you pass 3 seconds for d, this will execute the function 30 times.
-func (r *Runner) DoFor(d time.Duration, f func()) {
+func (r *Runner) DoFor(ctx context.Context, d time.Duration, f func()) {
 	if d == 0 {
 		return
 	}
@@ -61,6 +77,9 @@ func (r *Runner) DoFor(d time.Duration, f func()) {
 	var wg sync.WaitGroup
 	for {
 		select {
+		case <-ctx.Done():
+			wg.Wait()
+			return
 		case <-end:
 			wg.Wait()
 			return
@@ -74,6 +93,17 @@ func (r *Runner) DoFor(d time.Duration, f func()) {
 				defer wg.Done()
 				f()
 			}()
+		}
+	}
+}
+
+func checkDone(ctx context.Context) bool {
+	for {
+		select {
+		case <-ctx.Done():
+			return true
+		default:
+			return false
 		}
 	}
 }

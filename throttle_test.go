@@ -1,6 +1,7 @@
 package throttle
 
 import (
+	"context"
 	"log"
 	"reflect"
 	"sync/atomic"
@@ -29,7 +30,7 @@ func TestDo(t *testing.T) {
 			r := New(c.rps, c.res)
 
 			var sum int64
-			r.Do(c.total, func() {
+			r.Do(context.Background(), c.total, func() {
 				atomic.AddInt64(&sum, 1)
 			})
 
@@ -57,7 +58,7 @@ func TestDoFor(t *testing.T) {
 			r := New(c.rps, c.res)
 
 			var sum int64
-			r.DoFor(c.d, func() {
+			r.DoFor(context.Background(), c.d, func() {
 				atomic.AddInt64(&sum, 1)
 			})
 
@@ -93,11 +94,35 @@ func TestQOS(t *testing.T) {
 	}
 }
 
+func TestCancelDo(t *testing.T) {
+	r := New(10, time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cancel()
+
+	r.Do(ctx, 10, func() {
+		time.Sleep(time.Second * 10)
+	})
+}
+
+func TestCancelDoFor(t *testing.T) {
+	r := New(10, time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cancel()
+
+	r.DoFor(ctx, time.Second*10, func() {
+		time.Sleep(time.Second * 10)
+	})
+}
+
 func Example() {
 	r := New(10, time.Second)
 
 	var sum int64
-	r.Do(10, func() {
+	r.Do(context.Background(), 10, func() {
 		atomic.AddInt64(&sum, 1)
 	})
 	log.Println("sum", sum)
