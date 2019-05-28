@@ -97,17 +97,6 @@ func (r *Runner) DoFor(ctx context.Context, d time.Duration, f func()) {
 	}
 }
 
-func checkDone(ctx context.Context) bool {
-	for {
-		select {
-		case <-ctx.Done():
-			return true
-		default:
-			return false
-		}
-	}
-}
-
 func qos(rate int64, res time.Duration) time.Duration {
 	micros := res.Nanoseconds()
 	return time.Duration(micros/rate) * time.Nanosecond
