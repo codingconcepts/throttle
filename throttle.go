@@ -16,7 +16,9 @@ type Runner struct {
 // New returns a pointer to an instance of runner, which is used to
 // perform all operations at the given rate in requests/s.
 //
-// Rate is the number of requests you wish to run
+// Rate and Res can be used in conjection to give you a run frequency.
+// For example rate = 10, res = time.Second will run something 10 times
+// every second.
 func New(rate int64, res time.Duration) *Runner {
 	r := Runner{
 		rate: rate,
