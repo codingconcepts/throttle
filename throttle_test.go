@@ -2,6 +2,7 @@ package throttle
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"reflect"
 	"sync/atomic"
@@ -16,6 +17,7 @@ func TestDo(t *testing.T) {
 		res   time.Duration
 		total int
 		exp   int64
+		err   error
 	}{
 		{name: "no throttle without requests", rps: 0, res: time.Millisecond, total: 0, exp: 0},
 		{name: "1/ms throttle without requests", rps: 1, res: time.Millisecond, total: 0, exp: 0},
@@ -23,6 +25,7 @@ func TestDo(t *testing.T) {
 		{name: "1/ms throttle with 1 request", rps: 1, res: time.Millisecond, total: 1, exp: 1},
 		{name: "10/ms throttle with 1 request", rps: 10, res: time.Millisecond, total: 1, exp: 1},
 		{name: "10/ms throttle with 10 requests", rps: 10, res: time.Millisecond, total: 10, exp: 10},
+		{name: "10/ms throttle with 10 requests with error", rps: 10, res: time.Millisecond, total: 10, err: fmt.Errorf("oh no!")},
 	}
 
 	for _, c := range cases {
@@ -30,10 +33,15 @@ func TestDo(t *testing.T) {
 			r := New(c.rps, c.res)
 
 			var sum int64
-			r.Do(context.Background(), c.total, func() {
+			actErr := r.Do(context.Background(), c.total, func() error {
 				atomic.AddInt64(&sum, 1)
+				return c.err
 			})
 
+			equals(t, c.err, actErr)
+			if c.err != nil {
+				return
+			}
 			equals(t, c.exp, sum)
 		})
 	}
@@ -46,11 +54,13 @@ func TestDoFor(t *testing.T) {
 		res  time.Duration
 		d    time.Duration
 		exp  int64
+		err  error
 	}{
 		{name: "no throttle without requests", rps: 0, res: time.Millisecond, d: 0, exp: 0},
 		{name: "1 throttle for 1ms", rps: 1, res: time.Millisecond, d: time.Millisecond, exp: 1},
 		{name: "1 throttle for 2ms", rps: 10, res: time.Millisecond, d: time.Millisecond * 2, exp: 20},
 		{name: "10 throttle with 1ms", rps: 10, res: time.Millisecond, d: time.Millisecond, exp: 10},
+		{name: "10 throttle with 1ms with error", rps: 10, res: time.Millisecond, d: time.Millisecond, exp: 1, err: fmt.Errorf("oh no!")},
 	}
 
 	for _, c := range cases {
@@ -58,11 +68,13 @@ func TestDoFor(t *testing.T) {
 			r := New(c.rps, c.res)
 
 			var sum int64
-			r.DoFor(context.Background(), c.d, func() {
+			actErr := r.DoFor(context.Background(), c.d, func() error {
 				atomic.AddInt64(&sum, 1)
+				return c.err
 			})
 
 			equals(t, c.exp, sum)
+			equals(t, c.err, actErr)
 		})
 	}
 }
@@ -101,8 +113,9 @@ func TestCancelDo(t *testing.T) {
 
 	cancel()
 
-	r.Do(ctx, 10, func() {
+	r.Do(ctx, 10, func() error {
 		time.Sleep(time.Second * 10)
+		return nil
 	})
 }
 
@@ -113,8 +126,9 @@ func TestCancelDoFor(t *testing.T) {
 
 	cancel()
 
-	r.DoFor(ctx, time.Second*10, func() {
+	r.DoFor(ctx, time.Second*10, func() error {
 		time.Sleep(time.Second * 10)
+		return nil
 	})
 }
 
@@ -122,8 +136,9 @@ func Example() {
 	r := New(10, time.Second)
 
 	var sum int64
-	r.Do(context.Background(), 10, func() {
+	r.Do(context.Background(), 10, func() error {
 		atomic.AddInt64(&sum, 1)
+		return nil
 	})
 	log.Println("sum", sum)
 }

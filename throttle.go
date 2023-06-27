@@ -36,9 +36,11 @@ func New(rate int64, res time.Duration) *Runner {
 // your throttler is configured to run 10 operations per second and
 // you pass 50 for total, this will execute the function 50 times
 // and take 5 seconds.
-func (r *Runner) Do(ctx context.Context, total int, f func()) {
+func (r *Runner) Do(ctx context.Context, total int, f func() error) error {
 	var wg sync.WaitGroup
 	wg.Add(total)
+
+	errors := make(chan error)
 	for i := 0; i < total; i++ {
 		if r.rate > 0 {
 			<-r.c
@@ -46,7 +48,9 @@ func (r *Runner) Do(ctx context.Context, total int, f func()) {
 
 		go func() {
 			defer wg.Done()
-			f()
+			if err := f(); err != nil {
+				errors <- err
+			}
 		}()
 	}
 
@@ -60,9 +64,11 @@ func (r *Runner) Do(ctx context.Context, total int, f func()) {
 	for {
 		select {
 		case <-finished:
-			return
+			return nil
 		case <-ctx.Done():
-			return
+			return nil
+		case err := <-errors:
+			return err
 		}
 	}
 }
@@ -70,21 +76,24 @@ func (r *Runner) Do(ctx context.Context, total int, f func()) {
 // DoFor executes a function for a given amount of time.  For example,
 // if your throttler is configured to run 10 operations per second and
 // you pass 3 seconds for d, this will execute the function 30 times.
-func (r *Runner) DoFor(ctx context.Context, d time.Duration, f func()) {
+func (r *Runner) DoFor(ctx context.Context, d time.Duration, f func() error) error {
 	if d == 0 {
-		return
+		return nil
 	}
 
 	end := time.After(d)
+	errors := make(chan error)
 	var wg sync.WaitGroup
 	for {
 		select {
 		case <-ctx.Done():
 			wg.Wait()
-			return
+			return nil
 		case <-end:
 			wg.Wait()
-			return
+			return nil
+		case err := <-errors:
+			return err
 		default:
 			if r.rate > 0 {
 				<-r.c
@@ -93,7 +102,9 @@ func (r *Runner) DoFor(ctx context.Context, d time.Duration, f func()) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				f()
+				if err := f(); err != nil {
+					errors <- err
+				}
 			}()
 		}
 	}
